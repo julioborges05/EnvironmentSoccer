@@ -7,6 +7,7 @@ import numpy as np
 from rsoccer_gym.Entities import Frame, Robot, Ball
 from rsoccer_gym.vss.vss_gym_base import VSSBaseEnv
 from rsoccer_gym.Utils import KDTree
+from rsoccer_gym.vss.env_vss.controller.controller import goal_keeper_controller
 
 
 class VSSEnv(VSSBaseEnv):
@@ -17,23 +18,7 @@ class VSSEnv(VSSBaseEnv):
         Observation:
             Type: Box(40)
             Normalized Bounds to [-1.25, 1.25]
-            Num             Observation normalized  
-            0               Ball X
-            1               Ball Y
-            2               Ball Vx
-            3               Ball Vy
-            4 + (7 * i)     id i Blue Robot X
-            5 + (7 * i)     id i Blue Robot Y
-            6 + (7 * i)     id i Blue Robot sin(theta)
-            7 + (7 * i)     id i Blue Robot cos(theta)
-            8 + (7 * i)     id i Blue Robot Vx
-            9  + (7 * i)    id i Blue Robot Vy
-            10 + (7 * i)    id i Blue Robot v_theta
-            25 + (5 * i)    id i Yellow Robot X
-            26 + (5 * i)    id i Yellow Robot Y
-            27 + (5 * i)    id i Yellow Robot Vx
-            28 + (5 * i)    id i Yellow Robot Vy
-            29 + (5 * i)    id i Yellow Robot v_theta
+            Num             Observation normalized
         Actions:
             Type: Box(2, )
             Num     Action
@@ -65,7 +50,7 @@ class VSSEnv(VSSBaseEnv):
         self.previous_ball_potential = None
         self.actions: Dict = None
         self.reward_shaping_total = None
-        self.v_wheel_deadzone = 0.05
+        self.v_wheel_dead_zone = 0.05
 
         self.ou_actions = []
         for i in range(self.n_robots_blue + self.n_robots_yellow):
@@ -112,6 +97,16 @@ class VSSEnv(VSSBaseEnv):
         commands = []
         self.actions = {1: actions, 2: actions}
 
+        v1, v2 = goal_keeper_controller(0, 0, np.deg2rad(self.frame.robots_blue[0].theta), self.frame.robots_blue[0].x, self.frame.robots_blue[0].y)
+
+        # Send random commands to the other robots
+        actions = self.ou_actions[0].sample()
+        self.actions[0] = actions
+        v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, 0)
+        #commands.append(Robot(yellow=False, id=0, v_wheel0=v_wheel0, v_wheel1=v_wheel1))
+        commands.append(Robot(yellow=False, id=0, v_wheel0=v1,
+                               v_wheel1=v2))
+
         v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, 1)
         commands.append(Robot(yellow=False, id=1, v_wheel0=v_wheel0,
                               v_wheel1=v_wheel1))
@@ -119,15 +114,6 @@ class VSSEnv(VSSBaseEnv):
         v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, 2)
         commands.append(Robot(yellow=False, id=2, v_wheel0=v_wheel0,
                               v_wheel1=v_wheel1))
-
-        # Send random commands to the other robots
-        for i in range(0, (self.n_robots_blue - 1)):
-            actions = self.ou_actions[i].sample()
-            self.actions[i] = actions
-            v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, i)
-            commands.append(Robot(yellow=False, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1))
-            # commands.append(Robot(yellow=False, id=i, v_wheel0=0,
-            #                       v_wheel1=0))
                                   
         for i in range(self.n_robots_yellow):
             actions = self.ou_actions[self.n_robots_blue+i].sample()
@@ -156,7 +142,7 @@ class VSSEnv(VSSBaseEnv):
             self.reward_shaping_total['goals_yellow'] += 1
             return -10, True
 
-        reward = -1
+        reward = -0.5
 
         return reward, goal
 
@@ -213,10 +199,10 @@ class VSSEnv(VSSBaseEnv):
         )
 
         # Deadzone
-        if -self.v_wheel_deadzone < left_wheel_speed < self.v_wheel_deadzone:
+        if -self.v_wheel_dead_zone < left_wheel_speed < self.v_wheel_dead_zone:
             left_wheel_speed = 0
 
-        if -self.v_wheel_deadzone < right_wheel_speed < self.v_wheel_deadzone:
+        if -self.v_wheel_dead_zone < right_wheel_speed < self.v_wheel_dead_zone:
             right_wheel_speed = 0
 
         # Convert to rad/s

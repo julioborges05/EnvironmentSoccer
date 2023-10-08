@@ -4,9 +4,9 @@ import rsoccer_gym
 env = gym.make('VSS-v1')
 observation = env.reset()
 
-num_episodes = 5
+num_episodes = 1
 
-for _ in range (num_episodes):
+for _ in range(num_episodes):
     observation = env.reset()
     done = False
     total_rewords = 0
@@ -21,6 +21,7 @@ for _ in range (num_episodes):
         total_rewords += reward
 
         env.render()
-    print(reward, total_rewords)
+        print("Premio atual: ", reward)
+    print("Soma dos premios: ", total_rewords)
 
 env.close()
