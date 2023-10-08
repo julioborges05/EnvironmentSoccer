@@ -1,10 +1,21 @@
 import gym
 import rsoccer_gym
+from tensorflow import keras
 
 env = gym.make('VSS-v1')
 observation = env.reset()
 
-num_episodes = 5
+num_episodes = 10000
+
+
+model = keras.Sequential()
+model.add(layers.Dense(64, kernel_initializer='uniform', input_shape=(10,)))
+model.add(layers.Activation('softmax'))
+
+opt = keras.optimizers.Adam(learning_rate=0.01)
+model.compile(loss='categorical_crossentropy', optimizer=opt)
+
+
 
 for _ in range (num_episodes):
     observation = env.reset()
@@ -21,6 +32,6 @@ for _ in range (num_episodes):
         total_rewords += reward
 
         env.render()
-    print(reward, total_rewords)
+    print(reward)
 
 env.close()
