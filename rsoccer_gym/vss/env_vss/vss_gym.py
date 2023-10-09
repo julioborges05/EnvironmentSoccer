@@ -7,7 +7,7 @@ import numpy as np
 from rsoccer_gym.Entities import Frame, Robot, Ball
 from rsoccer_gym.vss.vss_gym_base import VSSBaseEnv
 from rsoccer_gym.Utils import KDTree
-from rsoccer_gym.vss.env_vss.controller.controller import goal_keeper_controller
+from rsoccer_gym.vss.env_vss.controller.controller import goal_keeper_controller, set_goal_keeper_coordinates
 
 
 class VSSEnv(VSSBaseEnv):
@@ -95,17 +95,15 @@ class VSSEnv(VSSBaseEnv):
 
     def _get_commands(self, actions):
         commands = []
-        self.actions = {1: actions, 2: actions}
+        # self.actions = {1: actions, 2: actions}
 
-        v1, v2 = goal_keeper_controller(0, 0, np.deg2rad(self.frame.robots_blue[0].theta), self.frame.robots_blue[0].x, self.frame.robots_blue[0].y)
-
-        # Send random commands to the other robots
-        actions = self.ou_actions[0].sample()
-        self.actions[0] = actions
-        v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, 0)
-        #commands.append(Robot(yellow=False, id=0, v_wheel0=v_wheel0, v_wheel1=v_wheel1))
-        commands.append(Robot(yellow=False, id=0, v_wheel0=v1,
-                               v_wheel1=v2))
+        goal_keeper_x, goal_keeper_y = set_goal_keeper_coordinates(self.frame.ball)
+        goal_keeper_actions = goal_keeper_controller(goal_keeper_x, goal_keeper_y,
+                                                    np.deg2rad(self.frame.robots_blue[0].theta),
+                                                    self.frame.robots_blue[0].x, self.frame.robots_blue[0].y)
+        v_wheel0, v_wheel1 = self._actions_to_v_wheels(goal_keeper_actions, 1)
+        commands.append(Robot(yellow=False, id=0, v_wheel0=goal_keeper_actions[0],
+                               v_wheel1=goal_keeper_actions[1]))
 
         v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, 1)
         commands.append(Robot(yellow=False, id=1, v_wheel0=v_wheel0,
@@ -142,7 +140,7 @@ class VSSEnv(VSSBaseEnv):
             self.reward_shaping_total['goals_yellow'] += 1
             return -10, True
 
-        reward = -0.5
+        reward = 0
 
         return reward, goal
 
@@ -187,12 +185,12 @@ class VSSEnv(VSSBaseEnv):
         return pos_frame
 
     def _actions_to_v_wheels(self, actions, index):
-        if index == 1 or index == 2:
+        if index == 0:
+            left_wheel_speed = actions[0] * self.max_v
+            right_wheel_speed = actions[1] * self.max_v
+        else:
             left_wheel_speed = actions[(index - 1) * 2] * self.max_v
             right_wheel_speed = actions[((index - 1) * 2) + 1] * self.max_v
-        else:
-            left_wheel_speed = actions[0] * self.max_v
-            right_wheel_speed = actions[2] * self.max_v
 
         left_wheel_speed, right_wheel_speed = np.clip(
             (left_wheel_speed, right_wheel_speed), -self.max_v, self.max_v
@@ -206,7 +204,8 @@ class VSSEnv(VSSBaseEnv):
             right_wheel_speed = 0
 
         # Convert to rad/s
-        left_wheel_speed /= self.field.rbt_wheel_radius
-        right_wheel_speed /= self.field.rbt_wheel_radius
+        if index != 0:
+            left_wheel_speed /= self.field.rbt_wheel_radius
+            right_wheel_speed /= self.field.rbt_wheel_radius
 
         return left_wheel_speed, right_wheel_speed

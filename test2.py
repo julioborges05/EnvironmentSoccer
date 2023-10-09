@@ -4,7 +4,7 @@ import rsoccer_gym
 env = gym.make('VSS-v1')
 observation = env.reset()
 
-num_episodes = 1
+num_episodes = 5
 
 for _ in range(num_episodes):
     observation = env.reset()

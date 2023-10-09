@@ -1,7 +1,10 @@
-from math import atan2, fabs, pi, fmod
+from math import atan2, fabs, pi, fmod, atan, tan
+from rsoccer_gym.Entities.Ball import Ball
+from rsoccer_gym.vss.env_vss.controller.entity import Entity
+from rsoccer_gym.vss.env_vss.controller.triangle import Triangle
 
 
-def smallestAngleDiff(target, source):
+def smallest_angle_diff(target, source):
     """Gets the smallest angle between two points in a arch"""
     a = fmod(target + 2 * pi, 2 * pi) - fmod(source + 2 * pi, 2 * pi)
 
@@ -32,74 +35,49 @@ def convert_angle(a) -> float:
         return 0
 
 
-def controller(field, objectives):
-    """
-        Basic PID controller that sets the speed of each motor
-        sends robot to objective coordinate
-        Courtesy of RoboCin
-    """
+def set_goal_keeper_coordinates(ball: Ball):
+    goal_keeper_robot = Entity()
+    goal_keeper_robot.x = -0.75
 
-    speeds = [{"index": i} for i in range(3)]
-    our_bots = field["our_bots"]
+    try:
+        is_ball_going_down = ball.v_y < 0
+        big_triangle = get_big_triangle_values(is_ball_going_down, ball)
+        small_triangle = get_small_triangle_values(big_triangle, ball)
 
-    # for each bot
-    for i, s in enumerate(speeds):
-        Kp = 20
-        Kd = 2.5
+        goal_keeper_robot.y = get_goal_keeper_vertical_value(is_ball_going_down, small_triangle.verticalValue, ball)
+        return goal_keeper_robot.x, goal_keeper_robot.y
+    except ZeroDivisionError:
+        return -0.75, 0
 
-        try:
-            controller.lastError
-        except AttributeError:
-            controller.lastError = 0
 
-        right_motor_speed = 0
-        left_motor_speed = 0
+def get_big_triangle_values(is_ball_going_down, ball: Ball):
 
-        objective = objectives[i]
-        our_bot = our_bots[i]
+    ball_velocity_angle = atan(ball.v_x / ball.v_y)
 
-        angle_rob = our_bot.a
+    big_triangle_vertical_value = ball.y + (0.20 if is_ball_going_down else -0.20)
+    big_triangle_horizontal_value = tan(ball_velocity_angle) * big_triangle_vertical_value
+    return Triangle(big_triangle_horizontal_value, big_triangle_vertical_value)
 
-        angle_obj = atan2(objective.y - our_bot.y,
-                          objective.x - our_bot.x)
 
-        error = smallestAngleDiff(angle_rob, angle_obj)
+def get_small_triangle_values(big_triangle: Triangle, ball: Ball):
+    goal_horizontal_position = -0.75
+    small_triangle_horizontal_value = goal_horizontal_position - (ball.x - big_triangle.horizontalValue)
+    small_triangle_vertical_value = (small_triangle_horizontal_value * big_triangle.verticalValue) / big_triangle.horizontalValue
 
-        reversed = False
-        if fabs(error) > pi / 2.0 + pi / 20.0:
-            reversed = True
-            angle_rob = convert_angle(angle_rob + pi)
-            error = smallestAngleDiff(angle_rob, angle_obj)
+    return Triangle(small_triangle_horizontal_value, small_triangle_vertical_value)
 
-        # set motor speed based on error and K constants
-        error_speed = (Kp * error) + (Kd * (error - controller.lastError))
 
-        controller.lastError = error
+def get_goal_keeper_vertical_value(is_ball_going_down, small_triangle_vertical_value, ball: Ball):
+    is_ball_going_to_other_goal_in_horizontal_direction = ball.v_x > 0
+    robot_vertical_position = ball.y if is_ball_going_to_other_goal_in_horizontal_direction \
+        else (small_triangle_vertical_value - 0.20) if is_ball_going_down else (small_triangle_vertical_value + 0.20)
 
-        baseSpeed = 30
+    if robot_vertical_position > 0.20:
+        return 0.165
+    if robot_vertical_position < -0.20:
+        return -0.165
+    return robot_vertical_position
 
-        # normalize
-        error_speed = error_speed if error_speed < baseSpeed else baseSpeed
-        error_speed = error_speed if error_speed > -baseSpeed else -baseSpeed
-
-        if error_speed > 0:
-            left_motor_speed = baseSpeed
-            right_motor_speed = baseSpeed - error_speed
-        else:
-            left_motor_speed = baseSpeed + error_speed
-            right_motor_speed = baseSpeed
-
-        if reversed:
-            if error_speed > 0:
-                left_motor_speed = -baseSpeed + error_speed
-                right_motor_speed = -baseSpeed
-            else:
-                left_motor_speed = -baseSpeed
-                right_motor_speed = -baseSpeed - error_speed
-
-        s["left"] = left_motor_speed
-        s["right"] = right_motor_speed
-    return speeds
 
 def goal_keeper_controller(objective_x, objective_y, robot_angle, robot_x, robot_y):
     """
@@ -108,15 +86,13 @@ def goal_keeper_controller(objective_x, objective_y, robot_angle, robot_x, robot
         Courtesy of RoboCin
     """
 
-    # for each bot
-
     Kp = 20
     Kd = 2.5
 
     try:
-        controller.lastError
+        goal_keeper_controller.lastError
     except AttributeError:
-        controller.lastError = 0
+        goal_keeper_controller.lastError = 0
 
     right_motor_speed = 0
     left_motor_speed = 0
@@ -126,40 +102,37 @@ def goal_keeper_controller(objective_x, objective_y, robot_angle, robot_x, robot
     angle_obj = atan2(objective_y - robot_y,
                       objective_x - robot_x)
 
-    error = smallestAngleDiff(angle_rob, angle_obj)
+    error = smallest_angle_diff(angle_rob, angle_obj)
 
-    reversed = False
+    is_reversed = False
+
     if fabs(error) > pi / 2.0 + pi / 20.0:
-        reversed = True
+        is_reversed = True
         angle_rob = convert_angle(angle_rob + pi)
-        error = smallestAngleDiff(angle_rob, angle_obj)
+        error = smallest_angle_diff(angle_rob, angle_obj)
 
     # set motor speed based on error and K constants
-    error_speed = (Kp * error) + (Kd * (error - controller.lastError))
-
-    controller.lastError = error
-
-    baseSpeed = 30
+    error_speed = (Kp * error) + (Kd * (error - goal_keeper_controller.lastError))
+    goal_keeper_controller.lastError = error
+    base_speed = 30
 
     # normalize
-    error_speed = error_speed if error_speed < baseSpeed else baseSpeed
-    error_speed = error_speed if error_speed > -baseSpeed else -baseSpeed
+    error_speed = error_speed if error_speed < base_speed else base_speed
+    error_speed = error_speed if error_speed > -base_speed else -base_speed
 
     if error_speed > 0:
-        left_motor_speed = baseSpeed
-        right_motor_speed = baseSpeed - error_speed
+        left_motor_speed = base_speed
+        right_motor_speed = base_speed - error_speed
     else:
-        left_motor_speed = baseSpeed + error_speed
-        right_motor_speed = baseSpeed
+        left_motor_speed = base_speed + error_speed
+        right_motor_speed = base_speed
 
-    if reversed:
+    if is_reversed:
         if error_speed > 0:
-            left_motor_speed = -baseSpeed + error_speed
-            right_motor_speed = -baseSpeed
+            left_motor_speed = -base_speed + error_speed
+            right_motor_speed = -base_speed
         else:
-            left_motor_speed = -baseSpeed
-            right_motor_speed = -baseSpeed - error_speed
+            left_motor_speed = -base_speed
+            right_motor_speed = -base_speed - error_speed
 
-    speed_v1 = left_motor_speed
-    speed_v2 = right_motor_speed
-    return speed_v1, speed_v2
+    return left_motor_speed, right_motor_speed
