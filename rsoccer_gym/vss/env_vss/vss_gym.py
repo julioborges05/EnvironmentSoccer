@@ -1,6 +1,7 @@
 import random
 from rsoccer_gym.Utils.Utils import OrnsteinUhlenbeckAction
 from typing import Dict
+from math import sqrt
 
 import gym
 import numpy as np
@@ -41,10 +42,10 @@ class VSSEnv(VSSBaseEnv):
                          time_step=0.025)
 
         self.action_space = gym.spaces.Box(low=-1, high=1,
-                                           shape=(4, ), dtype=np.float32)
+                                           shape=(4,), dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=-self.NORM_BOUNDS,
                                                 high=self.NORM_BOUNDS,
-                                                shape=(40, ), dtype=np.float32)
+                                                shape=(40,), dtype=np.float32)
 
         # Initialize Class Atributes
         self.previous_ball_potential = None
@@ -95,15 +96,13 @@ class VSSEnv(VSSBaseEnv):
 
     def _get_commands(self, actions):
         commands = []
-        # self.actions = {1: actions, 2: actions}
 
         goal_keeper_x, goal_keeper_y = set_goal_keeper_coordinates(self.frame.ball)
         goal_keeper_actions = goal_keeper_controller(goal_keeper_x, goal_keeper_y,
-                                                    np.deg2rad(self.frame.robots_blue[0].theta),
-                                                    self.frame.robots_blue[0].x, self.frame.robots_blue[0].y)
-        v_wheel0, v_wheel1 = self._actions_to_v_wheels(goal_keeper_actions, 1)
+                                                     np.deg2rad(self.frame.robots_blue[0].theta),
+                                                     self.frame.robots_blue[0].x, self.frame.robots_blue[0].y)
         commands.append(Robot(yellow=False, id=0, v_wheel0=goal_keeper_actions[0],
-                               v_wheel1=goal_keeper_actions[1]))
+                              v_wheel1=goal_keeper_actions[1]))
 
         v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, 1)
         commands.append(Robot(yellow=False, id=1, v_wheel0=v_wheel0,
@@ -112,9 +111,9 @@ class VSSEnv(VSSBaseEnv):
         v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, 2)
         commands.append(Robot(yellow=False, id=2, v_wheel0=v_wheel0,
                               v_wheel1=v_wheel1))
-                                  
+
         for i in range(self.n_robots_yellow):
-            actions = self.ou_actions[self.n_robots_blue+i].sample()
+            actions = self.ou_actions[self.n_robots_blue + i].sample()
             v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions, i)
             commands.append(Robot(yellow=True, id=i, v_wheel0=v_wheel0, v_wheel1=v_wheel1))
             # commands.append(Robot(yellow=True, id=i, v_wheel0=0,
@@ -140,22 +139,48 @@ class VSSEnv(VSSBaseEnv):
             self.reward_shaping_total['goals_yellow'] += 1
             return -10, True
 
-        reward = 0
+        reward = self.get_ball_reward()
 
-        return reward, goal
+        return 10 if reward > 10 else -10, goal
+
+    def get_ball_reward(self):
+        if self.frame.ball.y > 0.2:
+            vertical_value = 0.2
+        elif self.frame.ball.y < -0.2:
+            vertical_value = -0.2
+        else:
+            vertical_value = self.frame.ball.y
+
+        hypotenuse = sqrt((0.75 - self.frame.ball.x) ** 2 + vertical_value ** 2)
+
+        horizontal = hypotenuse * self.frame.ball.v_x
+        if self.frame.ball.y > 0.2:
+            vertical = hypotenuse * self.frame.ball.v_x
+        elif self.frame.ball.y < -0.2:
+            vertical = hypotenuse * self.frame.ball.v_x
+        else:
+            vertical = 0
+
+        if 10 > (horizontal + vertical) * 10 > -10:
+            return (horizontal + vertical) * 10
+        else:
+            return 10 if (horizontal + vertical) * 10 > 10 else -10
 
     def _get_initial_positions_frame(self):
         """Returns the position of each robot and ball for the initial frame"""
         field_half_length = self.field.length / 2
         field_half_width = self.field.width / 2
 
-        def x(): return random.uniform(-field_half_length + 0.1,
-                                       field_half_length - 0.1)
+        def x():
+            return random.uniform(-field_half_length + 0.1,
+                                  field_half_length - 0.1)
 
-        def y(): return random.uniform(-field_half_width + 0.1,
-                                       field_half_width - 0.1)
+        def y():
+            return random.uniform(-field_half_width + 0.1,
+                                  field_half_width - 0.1)
 
-        def theta(): return random.uniform(0, 360)
+        def theta():
+            return random.uniform(0, 360)
 
         pos_frame: Frame = Frame()
 
@@ -165,7 +190,7 @@ class VSSEnv(VSSBaseEnv):
 
         places = KDTree()
         places.insert((pos_frame.ball.x, pos_frame.ball.y))
-        
+
         for i in range(self.n_robots_blue):
             pos = (x(), y())
             while places.get_nearest(pos)[1] < min_dist:

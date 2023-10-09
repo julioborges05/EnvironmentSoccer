@@ -44,7 +44,7 @@ def set_goal_keeper_coordinates(ball: Ball):
         big_triangle = get_big_triangle_values(is_ball_going_down, ball)
         small_triangle = get_small_triangle_values(big_triangle, ball)
 
-        goal_keeper_robot.y = get_goal_keeper_vertical_value(is_ball_going_down, small_triangle.verticalValue, ball)
+        goal_keeper_robot.y = get_goal_keeper_vertical_value(is_ball_going_down, small_triangle.vertical_value, ball)
         return goal_keeper_robot.x, goal_keeper_robot.y
     except ZeroDivisionError:
         return -0.75, 0
@@ -61,8 +61,8 @@ def get_big_triangle_values(is_ball_going_down, ball: Ball):
 
 def get_small_triangle_values(big_triangle: Triangle, ball: Ball):
     goal_horizontal_position = -0.75
-    small_triangle_horizontal_value = goal_horizontal_position - (ball.x - big_triangle.horizontalValue)
-    small_triangle_vertical_value = (small_triangle_horizontal_value * big_triangle.verticalValue) / big_triangle.horizontalValue
+    small_triangle_horizontal_value = goal_horizontal_position - (ball.x - big_triangle.horizontal_value)
+    small_triangle_vertical_value = (small_triangle_horizontal_value * big_triangle.vertical_value) / big_triangle.horizontal_value
 
     return Triangle(small_triangle_horizontal_value, small_triangle_vertical_value)
 

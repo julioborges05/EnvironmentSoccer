@@ -2,25 +2,25 @@ from math import atan
 
 
 class Triangle:
-    def __init__(self, horizontalValue, verticalValue):
-        self.horizontalValue = horizontalValue
-        self.verticalValue = verticalValue
-        self.verticalHypotenuseAngle = self.__getVerticalHypotenuseAngle()
+    def __init__(self, horizontal_value, vertical_value):
+        self.horizontal_value = horizontal_value
+        self.vertical_value = vertical_value
+        self.vertical_hypotenuse_angle = self.get_vertical_hypotenuse_angle()
 
-    def thalesTheoremVerticalValue(self, horizontalValue):
+    def thales_theorem_vertical_value(self, horizontal_value):
         try:
-            return (horizontalValue * self.verticalValue) / self.horizontalValue
+            return (horizontal_value * self.vertical_value) / self.horizontal_value
         except ZeroDivisionError:
             return 0
 
-    def thalesTheoremHorizontalValue(self, verticalValue):
+    def thales_theorem_horizontal_value(self, vertical_value):
         try:
-            return (self.horizontalValue * verticalValue) / self.verticalValue
+            return (self.horizontal_value * vertical_value) / self.vertical_value
         except ZeroDivisionError:
             return 0
 
-    def __getVerticalHypotenuseAngle(self):
+    def get_vertical_hypotenuse_angle(self):
         try:
-            return atan(self.horizontalValue / self.verticalValue)
+            return atan(self.horizontal_value / self.vertical_value)
         except ZeroDivisionError:
             return 0
