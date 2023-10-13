@@ -5,14 +5,16 @@ import rsoccer_gym
 env = gym.make('VSS-v1')
 
 env.reset()
-print(env.action_space)
+
+total_reward = 0
 # Run for 1 episode and print reward at the end
-for i in range(10000):
+for i in range(100):
     done = False
     while not done:
         # Step using random actions
         action = env.action_space.sample()
         next_state, reward, done, _ = env.step(action)
         env.render()
-        # print(reward)
-    print(reward)
+        total_reward += reward
+        print("Premio atual: ", reward)
+    print("Soma dos premios: ", total_reward)

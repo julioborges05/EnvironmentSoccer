@@ -48,7 +48,6 @@ class VSSEnv(VSSBaseEnv):
                                                 shape=(40,), dtype=np.float32)
 
         # Initialize Class Atributes
-        self.previous_ball_potential = None
         self.actions: Dict = None
         self.reward_shaping_total = None
         self.v_wheel_dead_zone = 0.05
@@ -64,7 +63,6 @@ class VSSEnv(VSSBaseEnv):
     def reset(self):
         self.actions = None
         self.reward_shaping_total = None
-        self.previous_ball_potential = None
         for ou in self.ou_actions:
             ou.reset()
 
@@ -122,7 +120,6 @@ class VSSEnv(VSSBaseEnv):
         return commands
 
     def _calculate_reward_and_done(self):
-        reward = 0
         goal = False
         if self.reward_shaping_total is None:
             self.reward_shaping_total = {'goal_score': 0, 'move': 0,
@@ -132,16 +129,40 @@ class VSSEnv(VSSBaseEnv):
         if self.frame.ball.x > (self.field.length / 2):
             self.reward_shaping_total['goal_score'] += 1
             self.reward_shaping_total['goals_blue'] += 1
-            return 10, True
+            return 100, True
 
         if self.frame.ball.x < -(self.field.length / 2):
             self.reward_shaping_total['goal_score'] -= 1
             self.reward_shaping_total['goals_yellow'] += 1
-            return -10, True
+            return -100, True
 
-        reward = self.get_ball_reward()
+        reward = (self.get_ball_reward() * 6
+                  + self.get_robots_reward() * 4) / 10
 
-        return 10 if reward > 10 else -10, goal
+        if 100 > reward > -100:
+            return reward, goal
+        else:
+            return 100 if reward > 100 else -100, goal
+
+    def get_robots_reward(self):
+        bots_reward = 0
+        our_robots = self.frame.robots_blue
+
+        for index in our_robots:
+            if index == 0:
+                bots_reward += 0
+                continue
+
+            hypotenuse = sqrt(
+                (self.frame.ball.x - our_robots[index].x) ** 2 + (self.frame.ball.y - our_robots[index].y) ** 2)
+            hypotenuse = hypotenuse if hypotenuse > 0 else -hypotenuse
+
+            if our_robots[index].x < self.frame.ball.x:
+                bots_reward += (1/hypotenuse)
+            else:
+                bots_reward += -hypotenuse
+
+        return bots_reward
 
     def get_ball_reward(self):
         if self.frame.ball.y > 0.2:
@@ -153,18 +174,18 @@ class VSSEnv(VSSBaseEnv):
 
         hypotenuse = sqrt((0.75 - self.frame.ball.x) ** 2 + vertical_value ** 2)
 
-        horizontal = hypotenuse * self.frame.ball.v_x
+        horizontal = (1 / hypotenuse) * self.frame.ball.v_x
         if self.frame.ball.y > 0.2:
-            vertical = hypotenuse * self.frame.ball.v_x
+            vertical = (1 / hypotenuse) * self.frame.ball.v_x
         elif self.frame.ball.y < -0.2:
-            vertical = hypotenuse * self.frame.ball.v_x
+            vertical = (1 / hypotenuse) * self.frame.ball.v_x
         else:
             vertical = 0
 
-        if 10 > (horizontal + vertical) * 10 > -10:
-            return (horizontal + vertical) * 10
+        if 10 > (horizontal + vertical) > -10:
+            return horizontal + vertical
         else:
-            return 10 if (horizontal + vertical) * 10 > 10 else -10
+            return 10 if (horizontal + vertical) > 10 else -10
 
     def _get_initial_positions_frame(self):
         """Returns the position of each robot and ball for the initial frame"""
