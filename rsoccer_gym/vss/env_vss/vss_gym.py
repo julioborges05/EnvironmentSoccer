@@ -236,7 +236,10 @@ class VSSEnv(VSSBaseEnv):
             right_wheel_speed = actions[1] * self.max_v
         else:
             left_wheel_speed = actions[(index - 1) * 2] * self.max_v
-            right_wheel_speed = actions[((index - 1) * 2) + 1] * self.max_v
+            try:
+                right_wheel_speed = actions[((index - 1) * 2) + 1] * self.max_v
+            except IndexError:
+                print("Erro aqui")
 
         left_wheel_speed, right_wheel_speed = np.clip(
             (left_wheel_speed, right_wheel_speed), -self.max_v, self.max_v

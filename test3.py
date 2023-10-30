@@ -2,7 +2,7 @@ import gym
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
+from keras import layers
 
 # Configuration parameters for the whole setup
 seed = 42
