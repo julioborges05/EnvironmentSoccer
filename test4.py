@@ -188,14 +188,14 @@ else:
     num_episodes = 50
 
 for i_episode in range(num_episodes):
+    print(i_episode)
+
     # Initialize the environment and get it's state
     state = env.reset()
     state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
     for t in count():
         action = select_action(state)
         observation, reward, terminated, _ = env.step(action.numpy())
-
-        print(reward)
 
         # env.render()
 
@@ -234,3 +234,4 @@ print('Complete')
 plot_durations(show_result=True)
 plt.ioff()
 plt.show()
+
