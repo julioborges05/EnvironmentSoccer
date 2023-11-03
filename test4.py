@@ -83,8 +83,7 @@ steps_done = 0
 def select_action(state):
     global steps_done
     sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-                    math.exp(-1. * steps_done / EPS_DECAY)
+    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
     if sample > eps_threshold:
         with torch.no_grad():
@@ -96,6 +95,7 @@ def select_action(state):
 def plot_rewards(show_result=False):
     plt.figure(1)
     rewards = torch.tensor(episode_rewards, dtype=torch.float)
+    goals = torch.tensor(episode_goals, dtype=torch.float)
 
     if show_result:
         plt.title('Result')
@@ -106,8 +106,9 @@ def plot_rewards(show_result=False):
     plt.ylabel('Reward')
 
     plt.plot(rewards.numpy())
-
+    plt.plot(goals.numpy())
     plt.pause(0.001)  # pause a bit so that plots are updated
+
 
 def optimize_model():
     if len(memory) < BATCH_SIZE:
@@ -116,14 +117,12 @@ def optimize_model():
     batch = Transition(*zip(*transitions))
 
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                          batch.next_state)), device=device, dtype=torch.bool)
+                                            batch.next_state)), device=device, dtype=torch.bool)
     non_final_next_states = torch.cat([s for s in batch.next_state
-                                                if s is not None])
+                                       if s is not None])
     state_batch = torch.cat(batch.state)
-    action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
 
-    # state_action_values = policy_net(state_batch).gather(1, action_batch)
     state_action_values = policy_net(state_batch)
 
     next_state_values = torch.zeros(BATCH_SIZE, device=device)
@@ -140,7 +139,9 @@ def optimize_model():
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
 
+
 episode_rewards = []
+episode_goals = []
 
 if torch.cuda.is_available():
     num_episodes = 600
@@ -182,12 +183,15 @@ for i_episode in range(num_episodes):
         target_net.load_state_dict(target_net_state_dict)
 
         if done:
-            episode_rewards.append(episode_reward.numpy()[0])
+            episode_rewards.append(episode_reward.numpy()[0] / t)
+            if reward == 100 or reward == -100:
+                episode_goals.append(1 if reward == 100 else -1)
+            else:
+                episode_goals.append(0)
             plot_rewards()
-            print("episode reward: ", episode_reward.numpy()[0])
+            print("episode reward: ", episode_reward.numpy()[0] / t)
             break
 
 print('Complete')
 plot_rewards(show_result=True)
-# plt.ioff()
 plt.show()
