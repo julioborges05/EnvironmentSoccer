@@ -65,9 +65,7 @@ EPS_DECAY = 1000
 TAU = 0.005
 LR = 1e-4
 
-# Get number of actions from gym action space
 n_actions = env.action_space.shape[0]
-# Get the number of state observations
 state = env.reset()
 n_observations = len(state)
 
@@ -117,7 +115,7 @@ episode_rewards = []
 if torch.cuda.is_available():
     num_episodes = 600
 else:
-    num_episodes = 100
+    num_episodes = 200
 
 for i_episode in range(num_episodes):
     print(i_episode)
@@ -159,5 +157,5 @@ for i_episode in range(num_episodes):
 
 print('Complete')
 plot_rewards(show_result=True)
-plt.ioff()
+# plt.ioff()
 plt.show()
